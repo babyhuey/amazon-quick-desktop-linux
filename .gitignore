@@ -1,0 +1,10 @@
+# Never commit anything built from or downloaded from Amazon.
+*.exe
+*.dmg
+*.7z
+*.zip
+*.asar
+app-*/
+build.*/
+*.log
+body.md
