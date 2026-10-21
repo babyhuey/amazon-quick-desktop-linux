@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Electron spawns resources/agent/quickwork-agent on Linux. This runs the
+# Windows build of that helper under Wine instead.
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export WINEPREFIX="${QUICK_WINEPREFIX:-$HOME/.local/share/amazon-quick/wineprefix}"
+export WINEDEBUG="${WINEDEBUG:--all}"
+export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-mscoree,mshtml=}"
+
+# Electron opens an extra fd 3 pipe on POSIX that the Windows helper can't use.
+unset _QW_PARENT_TERM_FD
+
+to_win() { winepath -w "$1" 2>/dev/null; }
+for var in QUICKWORK_RESOURCES_PATH QUICKWORK_ROOT QUICKWORK_BASE QUICKWORK_USER_DATA_DIR \
+           QUICKWORK_EXTRACTED_PATH SSL_CERT_FILE REQUESTS_CA_BUNDLE AWS_CA_BUNDLE; do
+  if [[ -n "${!var:-}" && "${!var}" == /* ]]; then
+    win="$(to_win "${!var}")"
+    if [[ -n "$win" ]]; then export "$var=$win"; fi
+  fi
+done
+# A Wine process can't start the Linux Electron binary as its Node runtime.
+export QUICKWORK_NODE_PATH="$(to_win "$here/_internal/playwright/driver/node.exe")"
+unset TMPDIR
+
+# Windows Node children inherit stderr and crash on a Unix pipe (libuv EBADF); a file works.
+logdir="${XDG_STATE_HOME:-$HOME/.local/state}/amazon-quick"
+mkdir -p "$logdir"
+exec wine "$here/quickwork-agent.exe" "$@" 2>"${QUICK_AGENT_LOG:-$logdir/agent.log}"
