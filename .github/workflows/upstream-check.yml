@@ -1,0 +1,161 @@
+name: Upstream release check
+
+# Detects new Amazon Quick releases, test-builds them and reports the result
+# as an issue. Pull requests get the same build as a check, without issues or
+# releases. Builds are never uploaded: the repo ships no Amazon files.
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if this upstream release was already checked
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: upstream-check
+  cancel-in-progress: false
+
+env:
+  INSTALLER_URL: https://desktop.downloads.quick.aws.com/windows/x64/Amazon-Quick.exe
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    outputs:
+      etag: ${{ steps.probe.outputs.etag }}
+      new: ${{ steps.probe.outputs.new }}
+    steps:
+      - id: probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force || github.event_name == 'pull_request' }}
+        run: |
+          etag="$(curl -fsSI "$INSTALLER_URL" | tr -d '\r' | awk -F': ' 'tolower($1)=="etag"{print $2}' | tr -d '"')"
+          test -n "$etag"
+          echo "etag=$etag" >>"$GITHUB_OUTPUT"
+          seen="$(gh issue list -R "$GITHUB_REPOSITORY" --state all --label upstream-release \
+            --search "$etag in:title" --json number --jq length 2>/dev/null || echo 0)"
+          if [[ "$seen" == 0 || "$FORCE" == true ]]; then
+            echo "new=true" >>"$GITHUB_OUTPUT"
+            echo "New upstream installer: $etag"
+          else
+            echo "new=false" >>"$GITHUB_OUTPUT"
+            echo "Already checked: $etag"
+          fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.new == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      AMAZON_QUICK_SKIP_DESKTOP: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set the install location
+        run: echo "AMAZON_QUICK_HOME=$RUNNER_TEMP/amazon-quick" >>"$GITHUB_ENV"
+
+      - name: Install Wine and build tools
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo mkdir -pm755 /etc/apt/keyrings
+          sudo wget -qO /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
+          sudo wget -qNP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources
+          sudo apt-get update -q
+          sudo apt-get install -yq --install-recommends winehq-devel
+          sudo apt-get install -yq 7zip cabextract xvfb libnss3 libgbm1 libasound2t64
+          sudo wget -qO /usr/local/bin/winetricks https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks
+          sudo chmod +x /usr/local/bin/winetricks
+          wine --version
+
+      - name: Build (includes the helper smoke test)
+        id: build
+        run: ./build.sh 2>&1 | tee build.log
+
+      - name: Full app smoke test
+        id: app
+        run: ./smoke-test.sh "$AMAZON_QUICK_HOME/current" --electron 2>&1 | tee app.log
+
+      - name: Report
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ETAG: ${{ needs.check.outputs.etag }}
+          BUILD: ${{ steps.build.outcome }}
+          APP: ${{ steps.app.outcome }}
+        run: |
+          info="$AMAZON_QUICK_HOME/current/build-info.json"
+          version="$(jq -r .version "$info" 2>/dev/null || echo unknown)"
+          electron="$(jq -r .electron "$info" 2>/dev/null || echo unknown)"
+          if [[ "$BUILD" == success && "$APP" == success ]]; then result=PASS; else result=FAIL; fi
+          gh label create upstream-release -R "$GITHUB_REPOSITORY" --color 5319e7 \
+            --description "Automated check of a new upstream Amazon Quick release" --force
+          {
+            echo "Automated build check of a new upstream Amazon Quick installer."
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Result | **$result** |"
+            echo "| Amazon Quick | $version |"
+            echo "| Electron | $electron |"
+            echo "| Installer ETag | \`$ETAG\` |"
+            echo "| Wine | $(wine --version) |"
+            echo "| Build + helper smoke test | $BUILD |"
+            echo "| Full app smoke test | $APP |"
+            echo "| Run | $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID |"
+            if [[ "$result" == FAIL ]]; then
+              for f in build.log app.log; do
+                [[ -s "$f" ]] || continue
+                echo; echo "<details><summary>$f (last 80 lines)</summary>"; echo; echo '```'
+                tail -80 "$f"
+                echo '```'; echo "</details>"
+              done
+            else
+              echo
+              echo "Local installs pick this up on their next daily update check, or run \`./update.sh\` now."
+            fi
+          } >body.md
+          url="$(gh issue create -R "$GITHUB_REPOSITORY" --label upstream-release \
+            --title "Upstream release $version: $result (ETag $ETAG)" --body-file body.md)"
+          echo "$url"
+          if [[ "$result" == PASS ]]; then gh issue close "$url" -R "$GITHUB_REPOSITORY"; fi
+
+      - name: Tag a release matching the Amazon Quick version
+        if: >-
+          github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+          steps.build.outcome == 'success' && steps.app.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ETAG: ${{ needs.check.outputs.etag }}
+        run: |
+          info="$AMAZON_QUICK_HOME/current/build-info.json"
+          version="$(jq -r .version "$info")"
+          electron="$(jq -r .electron "$info")"
+          [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]] || { echo "unexpected version string: $version" >&2; exit 1; }
+          tag="v$version"
+          if gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists"
+            exit 0
+          fi
+          {
+            echo "Build scripts tested against **Amazon Quick $version** (Electron $electron, installer ETag \`$ETAG\`, $(wine --version))."
+            echo
+            echo "This release contains only this repository's scripts. To install or update, run \`./install.sh\` or \`./update.sh\`; they download Amazon's official installer and build the app on your machine."
+          } >notes.md
+          gh release create "$tag" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Amazon Quick $version" --notes-file notes.md

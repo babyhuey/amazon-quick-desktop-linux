@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Amazon Quick
+Comment=Amazon Quick desktop (unofficial Linux build)
+Exec=@EXEC@ %u
+Icon=@ICON@
+Type=Application
+Terminal=false
+Categories=Office;Network;
+MimeType=x-scheme-handler/amazonquick;x-scheme-handler/awsquick;
+StartupWMClass=Amazon Quick
