@@ -8,4 +8,5 @@ app-*/
 build.*/
 *.log
 body.md
+notes.md
 __pycache__/

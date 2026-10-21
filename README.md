@@ -177,6 +177,8 @@ No. The app talks only to the same Amazon endpoints as the Windows version. This
 
 `.github/workflows/upstream-check.yml` runs daily. When Amazon publishes a new installer, it test-builds the app on a GitHub runner with current WineHQ Wine and launches it headlessly. It then opens an issue labeled `upstream-release` with the result: passing results are closed right away, and failures stay open with logs. It never uploads the built app.
 
+When the build passes, the workflow also tags a release named after the Amazon Quick version, for example `v1.1.3905`. That tag marks the scripts confirmed to work with that version. Releases contain only this repository's scripts, never Amazon's files.
+
 ## License
 
 The scripts and documentation in this repository are released under the [MIT License](LICENSE). Amazon Quick is a trademark of Amazon.com, Inc. or its affiliates. The app downloaded by `build.sh` is covered by Amazon's own terms.

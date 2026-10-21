@@ -14,7 +14,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 concurrency:
@@ -128,3 +128,25 @@ jobs:
             --title "Upstream release $version: $result (ETag $ETAG)" --body-file body.md)"
           echo "$url"
           if [[ "$result" == PASS ]]; then gh issue close "$url" -R "$GITHUB_REPOSITORY"; fi
+
+      - name: Tag a release matching the Amazon Quick version
+        if: steps.build.outcome == 'success' && steps.app.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ETAG: ${{ needs.check.outputs.etag }}
+        run: |
+          info="$AMAZON_QUICK_HOME/current/build-info.json"
+          version="$(jq -r .version "$info")"
+          electron="$(jq -r .electron "$info")"
+          tag="v$version"
+          if gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists"
+            exit 0
+          fi
+          {
+            echo "Build scripts tested against **Amazon Quick $version** (Electron $electron, installer ETag \`$ETAG\`, $(wine --version))."
+            echo
+            echo "This release contains only this repository's scripts. To install or update, run \`./install.sh\` or \`./update.sh\`; they download Amazon's official installer and build the app on your machine."
+          } >notes.md
+          gh release create "$tag" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Amazon Quick $version" --notes-file notes.md
