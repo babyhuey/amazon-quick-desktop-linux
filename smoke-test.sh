@@ -46,8 +46,10 @@ if [[ "$mode" != --electron ]]; then
 fi
 
 command -v xvfb-run >/dev/null || fail "xvfb-run not found"
-mkdir -p "$tmp/home"
-# A throwaway HOME keeps the test away from the real ~/.quickwork.
+# A throwaway HOME keeps the test away from the real ~/.quickwork. The helper
+# only looks for its prefix under $HOME, so point that path at the test prefix.
+mkdir -p "$tmp/home/.local/share/amazon-quick"
+ln -s "$QUICK_WINEPREFIX" "$tmp/home/.local/share/amazon-quick/wineprefix"
 HOME="$tmp/home" QUICKWORK_USER_DATA_DIR="$tmp/user-data" QUICKWORK_OUTPOST_PORT="$port" \
   timeout 150 xvfb-run -a "$app/amazon-quick.sh" --no-sandbox >"$tmp/electron.log" 2>&1 &
 pid=$!

@@ -24,7 +24,8 @@ done
 
 mkdir -p "$cache" "$home_dir"
 work="$(mktemp -d "$cache/build.XXXXXX")"
-trap 'rm -rf "$work"' EXIT
+stage=""
+trap 'rm -rf "$work" ${stage:+"$stage"}' EXIT
 
 log "Checking the upstream installer"
 etag="$(curl -fsSI "$installer_url" | tr -d '\r' | awk -F': ' 'tolower($1)=="etag"{print $2}' | tr -d '"')"
@@ -32,7 +33,7 @@ etag="$(curl -fsSI "$installer_url" | tr -d '\r' | awk -F': ' 'tolower($1)=="eta
 installer="$cache/Amazon-Quick-$etag.exe"
 if [[ ! -f "$installer" ]]; then
   log "Downloading the installer (about 600 MB)"
-  curl -fL --retry 3 -o "$installer.part" "$installer_url"
+  curl -fsSL --retry 3 -o "$installer.part" "$installer_url"
   mv "$installer.part" "$installer"
   find "$cache" -maxdepth 1 -name 'Amazon-Quick-*.exe' ! -name "Amazon-Quick-$etag.exe" -delete
 fi
@@ -57,7 +58,7 @@ ezip="$cache/electron-v$electron-linux-x64.zip"
 if [[ ! -f "$ezip" ]]; then
   log "Downloading Electron $electron"
   base="https://github.com/electron/electron/releases/download/v$electron"
-  curl -fL --retry 3 -o "$ezip.part" "$base/electron-v$electron-linux-x64.zip"
+  curl -fsSL --retry 3 -o "$ezip.part" "$base/electron-v$electron-linux-x64.zip"
   curl -fsSL "$base/SHASUMS256.txt" | grep " \*\?electron-v$electron-linux-x64.zip\$" \
     | sed "s|electron-v$electron-linux-x64.zip|$ezip.part|" | sha256sum -c --quiet - \
     || die "Electron checksum mismatch"

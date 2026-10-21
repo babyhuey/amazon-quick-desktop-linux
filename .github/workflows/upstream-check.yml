@@ -1,11 +1,15 @@
 name: Upstream release check
 
 # Detects new Amazon Quick releases, test-builds them and reports the result
-# as an issue. Builds are never uploaded: the repo ships no Amazon files.
+# as an issue. Pull requests get the same build as a check, without issues or
+# releases. Builds are never uploaded: the repo ships no Amazon files.
 
 on:
   schedule:
     - cron: "17 9 * * *"
+  pull_request:
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
     inputs:
       force:
@@ -38,7 +42,7 @@ jobs:
       - id: probe
         env:
           GH_TOKEN: ${{ github.token }}
-          FORCE: ${{ inputs.force }}
+          FORCE: ${{ inputs.force || github.event_name == 'pull_request' }}
         run: |
           etag="$(curl -fsSI "$INSTALLER_URL" | tr -d '\r' | awk -F': ' 'tolower($1)=="etag"{print $2}' | tr -d '"')"
           test -n "$etag"
@@ -59,10 +63,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      AMAZON_QUICK_HOME: ${{ runner.temp }}/amazon-quick
       AMAZON_QUICK_SKIP_DESKTOP: "1"
     steps:
       - uses: actions/checkout@v5
+
+      - name: Set the install location
+        run: echo "AMAZON_QUICK_HOME=$RUNNER_TEMP/amazon-quick" >>"$GITHUB_ENV"
 
       - name: Install Wine and build tools
         run: |
@@ -86,7 +92,7 @@ jobs:
         run: ./smoke-test.sh "$AMAZON_QUICK_HOME/current" --electron 2>&1 | tee app.log
 
       - name: Report
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           ETAG: ${{ needs.check.outputs.etag }}
