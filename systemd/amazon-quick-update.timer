@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily check for a new Amazon Quick release
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=2h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

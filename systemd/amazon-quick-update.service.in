@@ -1,0 +1,10 @@
+[Unit]
+Description=Rebuild Amazon Quick when a new upstream release is published
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=@REPO@/update.sh
+Nice=10
+IOSchedulingClass=idle
