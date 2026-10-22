@@ -159,3 +159,53 @@ jobs:
           } >notes.md
           gh release create "$tag" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Amazon Quick $version" --notes-file notes.md
+
+  ubuntu:
+    needs: check
+    if: needs.check.outputs.new == 'true'
+    name: ubuntu (${{ matrix.image }}, ${{ matrix.wine }} wine)
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.image }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # Ubuntu 24.04's own Wine 9.0 can't run the helper, so the README sends 24.04 to WineHQ.
+        include:
+          - { image: "ubuntu:24.04", wine: winehq-stable }
+          - { image: "ubuntu:26.04", wine: ubuntu }
+          - { image: "ubuntu:26.04", wine: winehq-stable }
+          - { image: "ubuntu:26.10", wine: ubuntu }
+    env:
+      AMAZON_QUICK_SKIP_DESKTOP: "1"
+      DEBIAN_FRONTEND: noninteractive
+      # Container jobs run as root without $USER, which the launcher needs.
+      USER: root
+      WINE_SOURCE: ${{ matrix.wine }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Wine and build tools as the README describes
+        run: |
+          apt-get update -q
+          if [[ "$WINE_SOURCE" == winehq-stable ]]; then
+            apt-get install -yq ca-certificates wget gnupg
+            codename="$(. /etc/os-release; echo "$VERSION_CODENAME")"
+            dpkg --add-architecture i386
+            install -dm755 /etc/apt/keyrings
+            wget -qO- https://dl.winehq.org/wine-builds/winehq.key | gpg --dearmor -o /etc/apt/keyrings/winehq-archive.key
+            wget -NP /etc/apt/sources.list.d/ "https://dl.winehq.org/wine-builds/ubuntu/dists/$codename/winehq-$codename.sources"
+            apt-get update -q
+            apt-get install -yq --install-recommends winehq-stable
+            apt-get install -yq winetricks cabextract 7zip curl python3
+          else
+            apt-get install -yq wine winetricks cabextract 7zip curl python3
+          fi
+          apt-get install -yq xvfb xauth libnss3 libgbm1 libasound2t64 libgtk-3-0t64 libxss1 libxtst6
+          wine --version
+
+      - name: Build (includes the helper smoke test)
+        run: ./build.sh
+
+      - name: Full app smoke test
+        run: ./smoke-test.sh "$HOME/.local/share/amazon-quick/current" --electron
