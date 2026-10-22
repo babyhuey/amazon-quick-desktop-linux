@@ -15,7 +15,7 @@ tmp="$(mktemp -d)"
 pid=""
 cleanup() {
   [[ -n "$pid" ]] && kill "$pid" 2>/dev/null || true
-  WINEPREFIX="$QUICK_WINEPREFIX" wineserver -k 2>/dev/null || true
+  WINEPREFIX="$QUICK_WINEPREFIX" "$(command -v wineserver || ls /usr/lib/*/wine/wineserver /usr/lib/wine/wineserver64 2>/dev/null | head -1 || true)" -k 2>/dev/null || true
   rm -rf "$tmp"
 }
 trap cleanup EXIT

@@ -35,7 +35,7 @@ The first build downloads about 700 MB (the Amazon installer plus Electron) and 
 
 - An x86-64 Linux desktop
 - An Amazon Quick account on a plan that includes the desktop app, with desktop sign-in enabled by your Quick administrator
-- A recent Wine release (tested with Wine 11.20), plus `winetricks` and `cabextract`
+- Wine 10.0 or later (tested with 10.0, 11.0 and 11.20), plus `winetricks` and `cabextract`
 - 7-Zip (`7z` or `7zz`), `curl`, `python3`
 - About 3 GB of free disk space
 - Recommended: Chromium, Google Chrome, Edge or Brave for sign-in (see [Signing in](#signing-in))
@@ -48,7 +48,19 @@ Install the packages:
 | Fedora | `sudo dnf install wine winetricks cabextract 7zip curl python3` |
 | Ubuntu, Debian | `sudo apt install wine winetricks cabextract 7zip curl python3` |
 
-Ubuntu and Debian ship older Wine releases. If the app doesn't start, install the current development build from [WineHQ](https://gitlab.winehq.org/wine/wine/-/wikis/Download).
+Ubuntu 26.04 and later work with the Wine from that command (Wine 10.0). Ubuntu 24.04's Wine 9.0 is too old: the helper fails with `init_sys_streams: can't initialize sys standard streams`. On 24.04, install the stable build from [WineHQ](https://gitlab.winehq.org/wine/wine/-/wikis/Download) instead:
+
+```sh
+sudo dpkg --add-architecture i386
+sudo mkdir -pm755 /etc/apt/keyrings
+wget -qO- https://dl.winehq.org/wine-builds/winehq.key | sudo gpg --dearmor -o /etc/apt/keyrings/winehq-archive.key
+sudo wget -NP /etc/apt/sources.list.d/ "https://dl.winehq.org/wine-builds/ubuntu/dists/$(. /etc/os-release; echo $VERSION_CODENAME)/winehq-$(. /etc/os-release; echo $VERSION_CODENAME).sources"
+sudo apt update
+sudo apt install --install-recommends winehq-stable
+sudo apt install winetricks cabextract 7zip curl python3
+```
+
+The `gpg --dearmor` step matters on Ubuntu 26.04 and later: their apt rejects the key in the format WineHQ's own instructions save it in.
 
 ## Signing in
 
