@@ -63,7 +63,7 @@ The app opens sign-in pages in the first Chromium-family browser it finds (Chrom
 
 The result is a loop: you sign in, land in the web console, and the app never hears back. To use Firefox anyway, sign in to the Quick web console in the same container the sign-in tab opens in, or add exceptions for the Quick and identity provider domains.
 
-AWS SSO Containers can't be worked around that way. It moves every AWS SAML sign-in into its own container and has no setting to skip one. Turn it off in `about:addons` while you sign in, and click **Continue with SSO** a second time if the first attempt lands in the web console. Turn it back on afterwards. The app keeps its own token, so you only repeat this after signing out.
+If the AWS SSO Containers add-on is on, disable it.
 
 Then point the app at Firefox:
 
