@@ -61,7 +61,11 @@ The app opens sign-in pages in the first Chromium-family browser it finds (Chrom
 - **Container add-ons** (Multi-Account Containers, AWS SSO Containers, Granted) can open the sign-in page in a container that doesn't have your Quick session.
 - **Strict Enhanced Tracking Protection** can block or partition the cookies the sign-in hands between Quick, AWS and your identity provider.
 
-The result is a loop: you sign in, land in the web console, and the app never hears back. To use Firefox anyway, sign in to the Quick web console in the same container the sign-in tab opens in, or add exceptions for the Quick and identity provider domains. Then point the app at Firefox:
+The result is a loop: you sign in, land in the web console, and the app never hears back. To use Firefox anyway, sign in to the Quick web console in the same container the sign-in tab opens in, or add exceptions for the Quick and identity provider domains.
+
+If the AWS SSO Containers add-on is on, disable it.
+
+Then point the app at Firefox:
 
 ```sh
 WINEPREFIX=~/.local/share/amazon-quick/wineprefix wine reg add 'HKCU\Software\Wine\WineBrowser' /v Browsers /t REG_SZ /d xdg-open /f
@@ -109,6 +113,7 @@ Each of these breaks the app on stock Wine:
 | Wine's `_locking()` doesn't set `errno` when a file lock is busy | Python `filelock` raises `OSError` (errno 0) instead of retrying, so sign-in state can't be read or saved | `winetricks ucrtbase2019` installs Microsoft's C runtime into the prefix |
 | A Wine process can't start the Linux Electron binary as Node | `WinError 6` when the helper starts its network proxy or other Node tools | The wrapper points the helper at the Windows `node.exe` it already bundles |
 | Windows Node crashes when it inherits a Linux pipe as stdio | `Error: open EBADF` from Node, and the proxy never reports its port | The wrapper sends the helper's stderr to a log file instead of a pipe |
+| The helper only recognizes its profile folder by its own Windows path (`C:\users\<you>\.quickwork\...`), and after sign-in the interface turns that path into `<current dir>/C:\users\...` | Sign-in succeeds, then the app drops back to the login screen | The wrapper keeps the Windows part of such paths and passes `~/.quickwork` paths in the helper's own `C:\users\...` form |
 
 The prefix is also limited to your user (`chmod 700`), because Wine only obfuscates the stored sign-in token.
 

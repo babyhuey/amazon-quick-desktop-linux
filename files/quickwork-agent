@@ -13,7 +13,16 @@ unset _QW_PARENT_TERM_FD
 to_win() { winepath -w "$1" 2>/dev/null; }
 for var in QUICKWORK_RESOURCES_PATH QUICKWORK_ROOT QUICKWORK_BASE QUICKWORK_USER_DATA_DIR \
            QUICKWORK_EXTRACTED_PATH SSL_CERT_FILE REQUESTS_CA_BUNDLE AWS_CA_BUNDLE; do
-  if [[ -n "${!var:-}" && "${!var}" == /* ]]; then
+  # Electron resolves a Windows path from the helper (profile switch) against its
+  # own cwd, giving /cwd/C:\users\...; keep only the Windows part.
+  if [[ "${!var:-}" =~ [A-Za-z]:\\.* ]]; then
+    export "$var=${BASH_REMATCH[0]}"
+  # The helper matches profile roots against its own home (C:\users\$USER, linked
+  # to ~/.quickwork), so the Z:\home\... spelling of the same folder isn't found.
+  elif [[ "${!var:-}" == "$HOME/.quickwork"* ]]; then
+    rest="${!var#"$HOME/.quickwork"}"
+    export "$var=C:\\users\\$USER\\.quickwork${rest//\//\\}"
+  elif [[ -n "${!var:-}" && "${!var}" == /* ]]; then
     win="$(to_win "${!var}")"
     if [[ -n "$win" ]]; then export "$var=$win"; fi
   fi
