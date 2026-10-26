@@ -29,7 +29,7 @@ cd amazon-quick-desktop-linux
 
 The first build downloads about 700 MB (the Amazon installer plus Electron) and takes a few minutes. When it finishes, open **Amazon Quick** from your app menu or run `amazon-quick`. The first launch spends about 15 seconds setting up Wine.
 
-`install.sh` also turns on a daily update check. Use `./install.sh --no-timer` to skip that and run `./update.sh` yourself.
+On Ubuntu 23.10 and later, `install.sh` asks for `sudo` once to add an AppArmor profile that lets the app's sandbox start. `install.sh` also turns on a daily update check. Use `./install.sh --no-timer` to skip that and run `./update.sh` yourself.
 
 ## Requirements
 
@@ -159,6 +159,7 @@ Check that the helper starts under Wine, without touching your installed app or 
 | "Agent failed to start - timeout" | Check `agent.log`. Try a newer Wine release; this project is tested with 11.20. |
 | Sign-in loops back to the web console | See [Signing in](#signing-in). Make sure a Chromium-family browser is installed, then delete the prefix so it picks the browser up. |
 | Sign-in never returns to the app | `xdg-mime query default x-scheme-handler/amazonquick` should print `amazon-quick.desktop`. Re-run `./build.sh` to register it. |
+| The app aborts at launch with "The SUID sandbox helper binary was found, but is not configured correctly" | Ubuntu's AppArmor is blocking the sandbox. Run `./lib/apparmor.sh install`. |
 | The window doesn't open on Wayland | Run `amazon-quick --ozone-platform=x11`. |
 | The app says it's out of date | Run `./update.sh`. If the build fails, check this repo's issues for the upstream release. |
 

@@ -87,6 +87,9 @@ jobs:
         id: build
         run: ./build.sh 2>&1 | tee build.log
 
+      - name: Allow the app sandbox under AppArmor
+        run: lib/apparmor.sh install
+
       - name: Full app smoke test
         id: app
         run: ./smoke-test.sh "$AMAZON_QUICK_HOME/current" --electron 2>&1 | tee app.log

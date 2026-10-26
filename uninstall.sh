@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Removes the app, launcher, desktop entry and update timer.
+# Removes the app, launcher, desktop entry, update timer and AppArmor profile.
 # With --purge, also removes the Wine prefix (including the saved sign-in),
 # the app's settings and its local data in ~/.quickwork.
 set -euo pipefail
+repo="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 home_dir="${AMAZON_QUICK_HOME:-$HOME/.local/share/amazon-quick}"
 units="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 
@@ -14,6 +15,7 @@ rm -f "$HOME/.local/bin/amazon-quick" "$HOME/.local/share/applications/amazon-qu
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 find "$home_dir" -maxdepth 1 \( -name 'app-*' -o -name '.app-*' -o -name current \) -exec rm -rf {} + 2>/dev/null || true
 rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/amazon-quick"
+"$repo/lib/apparmor.sh" remove
 
 if [[ "${1:-}" == --purge ]]; then
   rm -rf "$home_dir" "${XDG_STATE_HOME:-$HOME/.local/state}/amazon-quick" \

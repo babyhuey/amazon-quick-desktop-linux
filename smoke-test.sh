@@ -50,8 +50,11 @@ command -v xvfb-run >/dev/null || fail "xvfb-run not found"
 # only looks for its prefix under $HOME, so point that path at the test prefix.
 mkdir -p "$tmp/home/.local/share/amazon-quick"
 ln -s "$QUICK_WINEPREFIX" "$tmp/home/.local/share/amazon-quick/wineprefix"
+# Electron won't start its sandbox as root, which is how the container CI jobs run.
+sandbox=()
+[[ $EUID == 0 ]] && sandbox=(--no-sandbox)
 HOME="$tmp/home" QUICKWORK_USER_DATA_DIR="$tmp/user-data" QUICKWORK_OUTPOST_PORT="$port" \
-  timeout 150 xvfb-run -a "$app/amazon-quick.sh" --no-sandbox >"$tmp/electron.log" 2>&1 &
+  timeout 150 xvfb-run -a "$app/amazon-quick.sh" "${sandbox[@]}" >"$tmp/electron.log" 2>&1 &
 pid=$!
 for _ in $(seq 1 140); do
   grep -q 'Window ready-to-show' "$tmp/electron.log" 2>/dev/null && grep -q 'Agent is ready' "$tmp/electron.log" && break
