@@ -4,6 +4,7 @@
 set -euo pipefail
 repo="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
+"$repo/lib/apparmor.sh" install
 "$repo/build.sh"
 
 if [[ "${1:-}" != --no-timer ]]; then
