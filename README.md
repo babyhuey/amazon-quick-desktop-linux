@@ -29,7 +29,9 @@ cd amazon-quick-desktop-linux
 
 The first build downloads about 700 MB (the Amazon installer plus Electron) and takes a few minutes. When it finishes, open **Amazon Quick** from your app menu or run `amazon-quick`. The first launch spends about 15 seconds setting up Wine.
 
-On Ubuntu 23.10 and later, `install.sh` asks for `sudo` once to add an AppArmor profile that lets the app's sandbox start. `install.sh` also turns on a daily update check. Use `./install.sh --no-timer` to skip that and run `./update.sh` yourself.
+On Ubuntu 23.10 and later, `install.sh` asks for `sudo` once to add an AppArmor profile that lets the app's sandbox start. The profile lets programs at `~/.local/share/amazon-quick/app-*/amazon-quick` create user namespaces, which Ubuntu otherwise restricts to shrink the kernel's attack surface. You can write to that folder, so other software running as you could place a program there to get the same permission. It doesn't extend to other accounts. Installing to a root-owned folder would avoid this, but then every update would need `sudo`.
+
+`install.sh` also turns on a daily update check. Use `./install.sh --no-timer` to skip that and run `./update.sh` yourself.
 
 ## Requirements
 
